@@ -1,0 +1,93 @@
+name: "CI"
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: "ci-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: "Lint & Test (Python)"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: "Install tools"
+        run: |
+          python -m pip install --upgrade pip
+          pip install black ruff mypy pytest pytest-asyncio moto
+
+      - name: "Black"
+        run: black --check .
+
+      - name: "Ruff"
+        run: ruff check .
+
+      - name: "Mypy"
+        # flip to strict once stubs are in place
+        run: mypy app || true
+
+      - name: "Pytest"
+        env:
+          APP_ENV: dev
+        run: pytest -q
+
+  terraform:
+    name: "Terraform Validate & Plan"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Setup Terraform"
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.5"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: "csa-ci"
+
+      - name: "Terraform fmt"
+        run: terraform fmt -check -diff
+
+      - name: "Terraform Init"
+        run: terraform init -input=false
+
+      - name: "Terraform Validate"
+        run: terraform validate
+
+      - name: "Terraform Plan"
+        run: terraform plan -input=false -out=tfplan
+
+      - name: "Upload Plan Artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: infra/tfplan

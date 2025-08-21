@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv*/
+dist/
+build/
+
+# Poetry
+poetry.lock
+
+# Env
+.env
+
+# Terraform
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/terraform.tfstate
+infra/terraform.tfstate.*
+infra/tfplan
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+.claude
