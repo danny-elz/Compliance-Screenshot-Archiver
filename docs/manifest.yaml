@@ -1,0 +1,11 @@
+documents:
+  - path: docs/CSA-Spec.md
+    id: CSA-SPEC
+    version: 1.0
+    normative: true
+    description: Normative requirements, security, retention, success criteria.
+  - path: docs/CSA-Design.md
+    id: CSA-DESIGN
+    version: 1.0
+    normative: true
+    description: Architecture, flows, API surface, data models, capture pipeline.

@@ -1,0 +1,21 @@
+name: Docs guard
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'CLAUDE.md'
+      - '.claude/**'
+      - 'PRPs/**'
+
+jobs:
+  doc_guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure required docs exist
+        run: |
+          set -euo pipefail
+          test -f docs/CSA-Spec.md || { echo 'Missing docs/CSA-Spec.md'; exit 1; }
+          test -f docs/CSA-Design.md || { echo 'Missing docs/CSA-Design.md'; exit 1; }
