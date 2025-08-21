@@ -6,7 +6,7 @@ locals {
 # ---------- Artifacts Bucket (with Object Lock) ----------
 resource "aws_s3_bucket" "artifacts" {
   bucket              = local.artifacts_bucket
-  object_lock_enabled = true  # must be set at creation time
+  object_lock_enabled = true # must be set at creation time
   force_destroy       = false
 }
 
@@ -55,37 +55,37 @@ resource "aws_s3_bucket_policy" "artifacts" {
     Version = "2012-10-17",
     Statement = [
       {
-        Sid      = "DenyInsecureTransport",
-        Effect   = "Deny",
+        Sid       = "DenyInsecureTransport",
+        Effect    = "Deny",
         Principal = "*",
-        Action   = "s3:*",
+        Action    = "s3:*",
         Resource = [
           aws_s3_bucket.artifacts.arn,
           "${aws_s3_bucket.artifacts.arn}/*"
         ],
-        Condition = { Bool = { "aws:SecureTransport": false } }
+        Condition = { Bool = { "aws:SecureTransport" : false } }
       },
       {
-        Sid      = "DenyUnencryptedObjectUploads",
-        Effect   = "Deny",
+        Sid       = "DenyUnencryptedObjectUploads",
+        Effect    = "Deny",
         Principal = "*",
-        Action   = "s3:PutObject",
-        Resource = "${aws_s3_bucket.artifacts.arn}/*",
+        Action    = "s3:PutObject",
+        Resource  = "${aws_s3_bucket.artifacts.arn}/*",
         Condition = {
           StringNotEquals = {
-            "s3:x-amz-server-side-encryption": "aws:kms"
+            "s3:x-amz-server-side-encryption" : "aws:kms"
           }
         }
       },
       {
-        Sid      = "DenyWrongKMSKey",
-        Effect   = "Deny",
+        Sid       = "DenyWrongKMSKey",
+        Effect    = "Deny",
         Principal = "*",
-        Action   = "s3:PutObject",
-        Resource = "${aws_s3_bucket.artifacts.arn}/*",
+        Action    = "s3:PutObject",
+        Resource  = "${aws_s3_bucket.artifacts.arn}/*",
         Condition = {
           StringNotEquals = {
-            "s3:x-amz-server-side-encryption-aws-kms-key-id": aws_kms_key.artifacts.arn
+            "s3:x-amz-server-side-encryption-aws-kms-key-id" : aws_kms_key.artifacts.arn
           }
         }
       }
@@ -157,21 +157,21 @@ resource "aws_s3_bucket_policy" "trail" {
     Version = "2012-10-17",
     Statement = [
       {
-        Sid      = "AWSCloudTrailAclCheck",
-        Effect   = "Allow",
-        Principal = { "Service": "cloudtrail.amazonaws.com" },
-        Action   = "s3:GetBucketAcl",
-        Resource = aws_s3_bucket.trail.arn
+        Sid       = "AWSCloudTrailAclCheck",
+        Effect    = "Allow",
+        Principal = { "Service" : "cloudtrail.amazonaws.com" },
+        Action    = "s3:GetBucketAcl",
+        Resource  = aws_s3_bucket.trail.arn
       },
       {
-        Sid      = "AWSCloudTrailWrite",
-        Effect   = "Allow",
-        Principal = { "Service": "cloudtrail.amazonaws.com" },
-        Action   = "s3:PutObject",
-        Resource = "${aws_s3_bucket.trail.arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*",
+        Sid       = "AWSCloudTrailWrite",
+        Effect    = "Allow",
+        Principal = { "Service" : "cloudtrail.amazonaws.com" },
+        Action    = "s3:PutObject",
+        Resource  = "${aws_s3_bucket.trail.arn}/AWSLogs/${data.aws_caller_identity.current.account_id}/*",
         Condition = {
           StringEquals = {
-            "s3:x-amz-acl": "bucket-owner-full-control"
+            "s3:x-amz-acl" : "bucket-owner-full-control"
           }
         }
       }
