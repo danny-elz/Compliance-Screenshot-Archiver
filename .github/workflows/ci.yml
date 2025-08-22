@@ -32,25 +32,26 @@ jobs:
           pip install black ruff mypy pytest pytest-asyncio moto
 
       - name: "Black"
-        run: black --check .
+        run: black --check backend/
 
       - name: "Ruff"
-        run: ruff check .
+        run: ruff check backend/
 
       - name: "Mypy"
         # flip to strict once stubs are in place
-        run: mypy app || true
+        run: mypy backend/app || true
 
       - name: "Pytest"
         env:
           APP_ENV: dev
+        working-directory: backend
         run: pytest -q
 
       - name: "Validate TASK.md Sync"
         if: github.event_name == 'pull_request'
         run: |
           # Check if code changes exist but TASK.md wasn't updated
-          CODE_CHANGES=$(git diff --name-only origin/${{ github.base_ref }}..HEAD | grep -E "^(app/|infra/|pyproject.toml)" | wc -l)
+          CODE_CHANGES=$(git diff --name-only origin/${{ github.base_ref }}..HEAD | grep -E "^(backend/app/|backend/infra/|backend/pyproject.toml)" | wc -l)
           TASK_CHANGES=$(git diff --name-only origin/${{ github.base_ref }}..HEAD | grep "TASK.md" | wc -l)
           
           echo "Code changes detected: $CODE_CHANGES"
@@ -100,7 +101,7 @@ jobs:
         env:
           GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          python3 scripts/auto_update_tasks.py
+          python3 backend/scripts/auto_update_tasks.py
           
       - name: "Commit TASK.md updates"
         run: |
@@ -125,7 +126,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: infra
+        working-directory: backend/infra
 
     permissions:
       id-token: write
@@ -164,7 +165,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tfplan
-          path: infra/tfplan
+          path: backend/infra/tfplan
 
       - name: "Check Infrastructure Security"
         run: |
