@@ -3,7 +3,7 @@ name = "compliance-screenshot-archiver"
 version = "0.1.0"
 description = "Scheduled and on-demand webpage captures with verifiable artifacts."
 authors = [{name = "CSA Team", email = "team@example.com"}]
-readme = "README.md"
+# readme = "README.md"  # No README in backend directory
 requires-python = ">=3.12"
 license = {text = "MIT"}
 keywords = ["compliance", "screenshot", "archiver", "audit", "evidence"]
