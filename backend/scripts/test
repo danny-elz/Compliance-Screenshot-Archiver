@@ -1,0 +1,53 @@
+#!/bin/bash
+# Simple wrapper script for test_all.py with common options
+# Usage examples:
+#   ./scripts/test           # Run full test suite
+#   ./scripts/test quick     # Quick mode for development
+#   ./scripts/test unit      # Unit tests only
+#   ./scripts/test quality   # Code quality only
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEST_SCRIPT="$SCRIPT_DIR/test_all.py"
+
+case "${1:-}" in
+    "quick")
+        exec python "$TEST_SCRIPT" --quick --skip-quality
+        ;;
+    "unit")
+        exec python "$TEST_SCRIPT" --unit-only --coverage-threshold 75
+        ;;
+    "quality")
+        # Quality checks only - skip tests, just run linting and type checking
+        exec python "$TEST_SCRIPT" --unit-only --coverage-threshold 0 2>/dev/null | grep -E "(Ruff|MyPy|Format)"
+        ;;
+    "dev"|"development")
+        exec python "$TEST_SCRIPT" --quick --detailed-report
+        ;;
+    "ci")
+        exec python "$TEST_SCRIPT" --coverage-threshold 90 --detailed-report
+        ;;
+    "help"|"--help"|"-h")
+        echo "Simple test wrapper for Compliance Screenshot Archiver"
+        echo ""
+        echo "Usage: $0 [mode]"
+        echo ""
+        echo "Modes:"
+        echo "  (none)      Full test suite with default settings"
+        echo "  quick       Quick mode for development (unit tests, 60% coverage)"
+        echo "  unit        Unit tests only, skip quality checks"
+        echo "  quality     Code quality checks only"
+        echo "  dev         Development mode with detailed report"
+        echo "  ci          CI mode with strict coverage and detailed report"
+        echo "  help        Show this help message"
+        echo ""
+        echo "For more options, run: python $TEST_SCRIPT --help"
+        ;;
+    "")
+        # Default: run full test suite with realistic coverage threshold
+        exec python "$TEST_SCRIPT" --coverage-threshold 75
+        ;;
+    *)
+        # Pass through any other arguments directly to test_all.py
+        exec python "$TEST_SCRIPT" "$@"
+        ;;
+esac

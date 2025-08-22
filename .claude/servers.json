@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "serena": {
+      "command": "serena-mcp",
+      "args": ["--config", "./serena-config.yaml"]
+    }
+  }
+}

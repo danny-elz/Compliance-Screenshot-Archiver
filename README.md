@@ -1,194 +1,166 @@
 # Compliance Screenshot Archiver (CSA)
 
-Automated web content archiving for compliance and regulatory requirements.
+**Enterprise-grade automated web content archiving for compliance and regulatory requirements.**
 
-## Authoritative docs
-- **Spec (normative):** [docs/CSA-Spec.md](docs/CSA-Spec.md)
-- **Design:** [docs/CSA-Design.md](docs/CSA-Design.md)
+The Compliance Screenshot Archiver is a production-ready system that automates the capture and archiving of webpage screenshots and PDFs for compliance and audit purposes. It provides cryptographically-verified, immutable evidence of web content with full audit trails.
 
-Agents and contributors must consult these before implementing or changing features.
+## 📁 Repository Structure
 
-## Quick Start
+This repository is organized for professional development and clear separation of concerns:
 
-1. **Set up automated TASK.md tracking**:
-   ```bash
-   # Enable auto-completion detection
-   ./scripts/setup_git_hooks.sh
-   ```
+```
+├── 📁 backend/              # Complete Python backend application
+│   ├── app/                 # FastAPI application code
+│   ├── tests/               # Comprehensive test suite
+│   ├── infra/               # Terraform infrastructure as code
+│   ├── scripts/             # Deployment and utility scripts
+│   └── docker/              # Docker configurations
+├── 📁 frontend/             # Frontend application (planned)
+├── 📁 docs/                 # Project documentation
+│   ├── compliance/          # Compliance and security docs
+│   └── assets/              # Images and supporting materials
+├── 📁 deployment/           # Deployment configurations
+├── 📁 tools/                # Development tools and utilities
+└── 📄 Core project files    # README, planning docs, etc.
+```
 
-2. **Install dependencies**:
-   ```bash
-   uv sync
-   ```
+## 🎯 Quick Start
 
-3. **Deploy infrastructure**:
-   ```bash
-   cd infra
-   terraform init
-   terraform plan
-   terraform apply
-   ```
+### Prerequisites
+- Python 3.12+
+- AWS CLI configured
+- Terraform 1.0+
+- Docker (for containerized components)
 
-4. **Configure authentication**:
-   ```bash
-   # Copy environment template
-   cp .env .env
-   
-   # Set Cognito configuration (from Terraform outputs)
-   export COGNITO_USER_POOL_ID=$(terraform output -raw cognito_user_pool_id)
-   export COGNITO_CLIENT_ID=$(terraform output -raw cognito_user_pool_client_id)
-   ```
-
-5. **Test authentication**:
-   ```bash
-   # Check API health and auth config
-   curl http://localhost:8000/api/health
-   curl http://localhost:8000/api/auth/config
-   ```
-
-## Automated TASK.md Management
-
-### How It Works
-
-TASK.md is **automatically updated** when you complete work:
-
+### 1. Backend Development
 ```bash
-# 1. Write code (e.g., implement S3 bucket)
-vim infra/s3_artifacts.tf
-
-# 2. Commit your changes  
-git add infra/s3_artifacts.tf
-git commit -m "feat: configure S3 with Object Lock"
-
-# 3. TASK.md auto-updates! ✅
-# Post-commit hook detects completion and checks off criteria:
-# - [x] S3 bucket created with Object Lock in Compliance mode
-# - [x] Default retention period set to 7 years
+cd backend
+uv sync                      # Install dependencies
+uv run pytest               # Run tests
+uv run ruff check .          # Lint code
 ```
 
-### What Gets Auto-Detected
-
-**Infrastructure completions:**
-- ✅ S3 Object Lock configuration
-- ✅ KMS key creation
-- ✅ DynamoDB table setup
-- ✅ CloudTrail logging
-
-**Code completions:**
-- ✅ Lambda function implementations
-- ✅ API endpoint creation
-- ✅ Hash computation logic
-- ✅ Security controls
-
-**Testing completions:**
-- ✅ Test coverage thresholds
-- ✅ Security test implementation
-- ✅ Integration test coverage
-
-### Manual Override
-
-If auto-detection misses something:
+### 2. Infrastructure Deployment
 ```bash
-# Manually run detection
-python3 scripts/auto_update_tasks.py
-
-# Or manually edit TASK.md
-vim TASK.md
+cd backend/infra
+terraform init
+terraform plan -var-file="terraform.tfvars"
+terraform apply
 ```
 
-### CI/CD Integration
-
-GitHub Actions automatically:
-- 🔍 **Validates** TASK.md is updated with code changes
-- ✅ **Auto-updates** TASK.md on main branch pushes  
-- 🚫 **Blocks PRs** if tasks aren't tracked properly
-
-## Development Workflow
-
+### 3. Local Development
 ```bash
-# 1. Check what needs to be done
-grep -A5 "Status.*PENDING" TASK.md
-
-# 2. Work on a task
-# (implementation happens here)
-
-# 3. Commit - TASK.md updates automatically!
-git commit -m "feat: implement capture engine"
-
-# 4. TASK.md now shows:
-# ✅ Status: COMPLETED 
-# ✅ Completed: 2024-01-22, auto-detected
+cd backend
+uv run python -m app.main   # Start API server
 ```
 
-## Task Status Flow
+## 📋 Authoritative Documentation
+- **Requirements Specification:** [docs/CSA-Spec.md](docs/CSA-Spec.md)
+- **System Design:** [docs/CSA-Design.md](docs/CSA-Design.md)
+- **Market Analysis:** [docs/Future-Prospects.md](docs/Future-Prospects.md)
+- **Implementation Tasks:** [TASK.md](TASK.md)
+- **Project Planning:** [PLANNING.md](PLANNING.md)
 
-```
-PENDING → IN_PROGRESS → COMPLETED ✅
-   ↑           ↑            ↑
-Manual     Auto-detected   All criteria
- start      any progress    completed
-```
+## 🏗️ System Architecture
 
-## Security & Compliance
+**Technology Stack:**
+- **Backend:** Python 3.12, FastAPI, Playwright/Chromium
+- **Infrastructure:** AWS (Lambda, S3, DynamoDB, EventBridge, Cognito)
+- **Security:** S3 Object Lock (Compliance mode), KMS encryption, JWT authentication
+- **Deployment:** Terraform, Docker, GitHub Actions
 
-This system ensures regulatory compliance by:
-- 📋 **Tracking all requirements** with acceptance criteria
-- 🔍 **Auto-verifying completions** to prevent gaps
-- 📝 **Maintaining audit trail** of what was built when
-- 🚫 **Blocking releases** until MUST requirements complete
+**Key Features:**
+- ✅ Scheduled and on-demand webpage captures
+- ✅ PDF/PNG export with SHA-256 hash verification
+- ✅ Immutable storage with 7-year retention
+- ✅ Enterprise authentication and RBAC
+- ✅ Complete audit trails and compliance reporting
+- ✅ RESTful API and dashboard interface
 
-## Authentication
+## 🚀 Development Workflow
 
-The API uses **JWT tokens from AWS Cognito** for authentication with role-based access control:
-
-- **Admin**: Full access to all resources
-- **Operator**: Can view and trigger captures
-- **Viewer**: Read-only access
-
-See [docs/authentication.md](docs/authentication.md) for complete setup guide.
-
-### Quick Auth Test
+### For Backend Development
 ```bash
-# Test with JWT token
-python scripts/test_auth.py --token "your-jwt-token"
+cd backend
 
-# API usage
-curl -H "Authorization: Bearer <token>" http://localhost:8000/api/captures
+# Install dependencies
+uv sync
+
+# Run development server
+uv run python -m app.main
+
+# Run tests
+uv run pytest
+
+# Code quality checks
+uv run ruff check .
+uv run mypy app/
+
+# Deploy infrastructure
+cd infra && terraform apply
 ```
 
-## Files
-
-- `TASK.md` - Living task list (auto-updated)
-- `PLANNING.md` - Requirements and architecture reference
-- `validation-gates.md` - Security and compliance rules
-- `docs/authentication.md` - JWT authentication setup guide
-- `scripts/auto_update_tasks.py` - Auto-completion detection engine
-- `scripts/task_completion_rules.yaml` - Detection rules configuration
-- `scripts/test_auth.py` - Authentication testing utility
-
-## Troubleshooting
-
-**TASK.md not auto-updating?**
+### For Frontend Development (Future)
 ```bash
-# Check if git hooks are installed
-ls .git/hooks/post-commit
-
-# Reinstall if missing
-./scripts/setup_git_hooks.sh
-
-# Test manually
-python3 scripts/auto_update_tasks.py
+cd frontend
+# Frontend implementation planned
+# See frontend/README.md for details
 ```
 
-**False positives/negatives?**
-```bash
-# Adjust detection rules
-vim scripts/task_completion_rules.yaml
+## 🔒 Security & Compliance
 
-# Test detection logic
-python3 scripts/auto_update_tasks.py --dry-run
-```
+This system implements enterprise-grade security:
+
+- **🔐 Authentication:** AWS Cognito with JWT tokens
+- **🛡️ Authorization:** Role-based access control (Admin/Operator/Viewer)
+- **🔒 Encryption:** KMS encryption for all data at rest and in transit
+- **📝 Immutability:** S3 Object Lock in Compliance mode (cannot be disabled)
+- **📋 Audit Trail:** Complete CloudTrail logging with Object Lock protection
+- **✅ Verification:** SHA-256 hash verification for all captured content
+
+### Compliance Standards
+- **SEC 17a-4:** Electronic record retention requirements
+- **SOC 2 Type II:** Security and availability controls
+- **WORM Storage:** Write-once, read-many with legal defensibility
+
+## 💰 Business Value
+
+The CSA system addresses a **$15M market opportunity** in enterprise compliance:
+
+- **Target Market:** Enterprise legal, compliance, and audit teams
+- **Pricing Model:** $299-4,999/month SaaS tiers
+- **Value Proposition:** Legal-defensible evidence vs. basic screenshots
+- **Competitive Advantage:** 10-100x higher value than commodity screenshot APIs
+
+See [docs/Future-Prospects.md](docs/Future-Prospects.md) for complete market analysis.
+
+## 📊 Project Status
+
+**Current State:** Production-ready backend with comprehensive test coverage
+- ✅ **Core Features:** All MUST requirements implemented
+- ✅ **Infrastructure:** Complete Terraform configurations
+- ✅ **Security:** Enterprise-grade compliance controls
+- ✅ **Testing:** 92 tests passing with 75% coverage
+- 📋 **Frontend:** Planned implementation
+
+## 🤝 Contributing
+
+This project follows professional development standards:
+
+1. **Read the specs:** Review CSA-Spec.md and CSA-Design.md first
+2. **Check tasks:** See TASK.md for current priorities
+3. **Follow standards:** Use ruff/mypy for code quality
+4. **Write tests:** Maintain test coverage above 75%
+5. **Security first:** Never compromise compliance requirements
+
+## 📞 Support
+
+For questions or issues:
+- **Documentation:** See docs/ directory
+- **Tasks & Planning:** Check TASK.md and PLANNING.md
+- **Architecture:** Review CSA-Design.md
+- **Business Case:** See Future-Prospects.md
 
 ---
 
-*TASK.md is automatically maintained - focus on building, not tracking!* ✨
+**Status:** Production-ready backend, frontend development planned

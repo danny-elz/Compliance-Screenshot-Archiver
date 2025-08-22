@@ -1,0 +1,251 @@
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from ...auth.deps import can_access_user_resource, require_operator, require_viewer
+
+# Removed direct import of processor to avoid Playwright dependency in API Lambda
+from ...domain.models import CaptureOut
+from ...storage.dynamo import get_capture, list_captures_by_user
+from ...storage.s3 import presign_download
+
+router: APIRouter = APIRouter()
+logger = logging.getLogger(__name__)
+
+# Pre-instantiated dependencies to avoid B008 lint issues
+_viewer_dep = Depends(require_viewer)
+_operator_dep = Depends(require_operator)
+
+
+@router.get("", response_model=list)
+async def list_captures(
+    limit: int = Query(default=50, ge=1, le=100),
+    last_key: str = Query(default=None),
+    user_info: dict[str, str] = _viewer_dep,
+):
+    """
+    List captures for the authenticated user.
+
+    Args:
+        limit: Maximum number of captures to return.
+        last_key: Pagination token from previous request.
+        user_info: User authentication info.
+
+    Returns:
+        list[CaptureOut]: User's captures.
+    """
+    user_id = user_info.get("sub", "unknown")
+
+    # Parse pagination token if provided
+    last_evaluated_key = None
+    if last_key:
+        try:
+            import json
+
+            last_evaluated_key = json.loads(last_key)
+        except (json.JSONDecodeError, ValueError) as e:
+            raise HTTPException(status_code=400, detail="Invalid pagination token") from e
+
+    # Fetch captures from DynamoDB
+    result = list_captures_by_user(
+        user_id=user_id,
+        limit=limit,
+        last_evaluated_key=last_evaluated_key,
+    )
+
+    # Convert to response models
+    captures = []
+    for item in result["items"]:
+        captures.append(
+            CaptureOut(
+                id=item["capture_id"],
+                sha256=item["sha256"],
+                s3_key=item["s3_key"],
+                artifact_type=item["artifact_type"],
+                url=item["url"],
+                created_at=float(item["created_at"]),
+                status=item.get("status", "completed"),
+            )
+        )
+
+    return captures
+
+
+@router.get("/{capture_id}", response_model=CaptureOut)
+async def get_capture_by_id(
+    capture_id: str,
+    user_info: dict[str, str] = _viewer_dep,
+) -> CaptureOut:
+    """
+    Get a specific capture by ID.
+
+    Args:
+        capture_id: Capture ID.
+        user_info: User authentication info.
+
+    Returns:
+        CaptureOut: Capture details.
+    """
+    capture = get_capture(capture_id)
+
+    if not capture:
+        raise HTTPException(status_code=404, detail="Capture not found")
+
+    # Verify user has access to this capture
+    if not can_access_user_resource(user_info, capture["user_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    return CaptureOut(
+        id=capture["capture_id"],
+        sha256=capture["sha256"],
+        s3_key=capture["s3_key"],
+        artifact_type=capture["artifact_type"],
+        url=capture["url"],
+        created_at=float(capture["created_at"]),
+        status=capture.get("status", "completed"),
+    )
+
+
+@router.get("/{capture_id}/download")
+async def download_capture(
+    capture_id: str,
+    user_info: dict[str, str] = _viewer_dep,
+) -> dict[str, str]:
+    """
+    Get a presigned URL to download a capture.
+
+    Args:
+        capture_id: Capture ID.
+        user_info: User authentication info.
+
+    Returns:
+        dict: Download URL and metadata.
+    """
+    capture = get_capture(capture_id)
+
+    if not capture:
+        raise HTTPException(status_code=404, detail="Capture not found")
+
+    # Verify user has access
+    if not can_access_user_resource(user_info, capture["user_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Generate presigned URL
+    download_url = presign_download(capture["s3_key"])
+
+    return {
+        "download_url": download_url,
+        "expires_in": "900",  # 15 minutes
+        "filename": f"{capture_id}.{capture['artifact_type']}",
+        "content_type": "application/pdf" if capture["artifact_type"] == "pdf" else "image/png",
+    }
+
+
+@router.post("/trigger", response_model=dict[str, Any])
+async def trigger_capture(
+    url: str,
+    artifact_type: str = Query(default="pdf", pattern="^(png|pdf)$"),
+    user_info: dict[str, str] = _operator_dep,
+) -> dict[str, Any]:
+    """
+    Trigger an on-demand capture by queuing to SQS.
+
+    Args:
+        url: Target URL to capture.
+        artifact_type: 'png' or 'pdf'.
+        user_info: User authentication info.
+
+    Returns:
+        dict: Queued request details with status.
+    """
+    import json
+    import uuid
+
+    import boto3
+
+    user_id = user_info.get("sub", "unknown")
+    capture_id = str(uuid.uuid4())
+
+    try:
+        # Send message to SQS for async processing
+        sqs = boto3.client("sqs")
+        queue_url = "https://sqs.us-east-1.amazonaws.com/528757794814/csa-jobs"
+
+        message_body = {
+            "capture_id": capture_id,
+            "url": url,
+            "artifact_type": artifact_type,
+            "user_id": user_id,
+            "metadata": {"triggered_via": "api"},
+        }
+
+        response = sqs.send_message(
+            QueueUrl=queue_url,
+            MessageBody=json.dumps(message_body),
+            MessageAttributes={
+                "capture_id": {"StringValue": capture_id, "DataType": "String"},
+                "user_id": {"StringValue": user_id, "DataType": "String"},
+            },
+        )
+
+        logger.info(
+            f"Capture queued successfully: {capture_id}, message_id: {response['MessageId']}"
+        )
+
+        return {
+            "capture_id": capture_id,
+            "status": "queued",
+            "url": url,
+            "artifact_type": artifact_type,
+            "message_id": response["MessageId"],
+            "queue_url": queue_url,
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to queue capture: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to queue capture: {str(e)}") from e
+
+
+@router.post("/verify", response_model=dict[str, Any])
+async def verify_capture(
+    sha256: str,
+    user_info: dict[str, str] = _viewer_dep,
+) -> dict[str, Any]:
+    """
+    Verify a capture by its SHA-256 hash.
+
+    Args:
+        sha256: SHA-256 hash to verify.
+        user_info: User authentication info.
+
+    Returns:
+        dict: Verification result.
+    """
+    from ...storage.dynamo import get_capture_by_hash
+    from ...storage.s3 import verify_object_lock
+
+    # Find capture by hash
+    capture = get_capture_by_hash(sha256)
+
+    if not capture:
+        return {
+            "verified": False,
+            "reason": "No capture found with this hash",
+            "sha256": sha256,
+        }
+
+    # Verify Object Lock is still in place
+    object_locked = verify_object_lock(capture["s3_key"])
+
+    return {
+        "verified": True,
+        "capture_id": capture["capture_id"],
+        "url": capture["url"],
+        "artifact_type": capture["artifact_type"],
+        "created_at": float(capture["created_at"]),
+        "object_lock_verified": object_locked,
+        "sha256": sha256,
+    }
