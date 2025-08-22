@@ -77,18 +77,12 @@ async def capture_webpage(
             # Wait for any dynamic content
             await page.wait_for_timeout(2000)
 
-            # Capture based on type
-            if artifact_type == "pdf":
-                artifact_data = await page.pdf(
-                    format="A4",
-                    print_background=True,
-                    margin={"top": "1cm", "bottom": "1cm", "left": "1cm", "right": "1cm"},
-                )
-            else:  # png
-                artifact_data = await page.screenshot(
-                    full_page=True,
-                    type="png",
-                )
+            # Always capture as PNG screenshot - this is what the user wants
+            # Full page screenshot showing the entire webpage
+            artifact_data = await page.screenshot(
+                full_page=False,  # Just the viewport to show "top of the page" as requested
+                type="png",
+            )
 
             # Calculate SHA-256 hash
             sha256_hash = hashlib.sha256(artifact_data).hexdigest()

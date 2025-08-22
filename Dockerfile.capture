@@ -22,8 +22,9 @@ RUN pip3 install --upgrade pip && \
 ENV LAMBDA_TASK_ROOT=/var/task
 RUN mkdir -p ${LAMBDA_TASK_ROOT}
 
-# Install Python dependencies
+# Install Python dependencies including Playwright
 RUN pip3 install \
+        'playwright>=1.44.0' \
         'fastapi>=0.111.0' \
         'pydantic>=2.8.2' \
         'uvicorn>=0.30.0' \

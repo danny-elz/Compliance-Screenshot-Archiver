@@ -33,20 +33,14 @@ async def process_capture_request(
     Returns:
         dict: Capture result with S3 and DynamoDB details.
     """
-    # Import here to avoid Playwright dependency when module is imported
-    # Try Playwright first, then simple engine, then mock engine
+    # ONLY use Playwright - no fallbacks
     try:
         from .engine import capture_webpage
-
-        jlog(logger, "capture_engine", message="Using Playwright engine", level="INFO")
-    except ImportError:
-        try:
-            from .simple_engine import capture_webpage_simple as capture_webpage
-
-            jlog(logger, "capture_engine", message="Using simple HTTP capture engine", level="INFO")
-        except ImportError:
-            jlog(logger, "capture_engine", message="Using mock capture engine", level="WARNING")
-            from .mock_engine import capture_webpage_mock as capture_webpage
+        jlog(logger, "capture_engine", message="Using Playwright engine for real browser screenshots", level="INFO")
+    except ImportError as e:
+        error_msg = f"CRITICAL: Playwright import failed: {str(e)}"
+        jlog(logger, "capture_engine", message=error_msg, level="ERROR")
+        raise RuntimeError(f"Playwright is required but not available: {str(e)}")
 
     capture_id = str(uuid.uuid4())
 
