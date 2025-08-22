@@ -1,0 +1,54 @@
+# Screenshot Capture Lambda Container with Playwright
+# Use Microsoft's official Playwright Python image with all dependencies
+FROM mcr.microsoft.com/playwright/python:v1.44.0-jammy
+
+# Install additional system dependencies for Lambda
+RUN apt-get update && \
+    apt-get install -y \
+        g++ \
+        make \
+        cmake \
+        unzip \
+        libcurl4-openssl-dev \
+        ca-certificates && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install AWS Lambda Runtime Interface Client
+RUN pip3 install --upgrade pip && \
+    pip3 install awslambdaric
+
+# Set up Lambda function directory
+ENV LAMBDA_TASK_ROOT=/var/task
+RUN mkdir -p ${LAMBDA_TASK_ROOT}
+
+# Install Python dependencies
+RUN pip3 install \
+        'fastapi>=0.111.0' \
+        'pydantic>=2.8.2' \
+        'uvicorn>=0.30.0' \
+        'python-dotenv>=1.0.1' \
+        'boto3>=1.34.0' \
+        'mangum>=0.17.0' \
+        'httpx>=0.27.0' \
+        'requests>=2.31.0' \
+        'ulid-py>=1.1.0' \
+        'python-jose[cryptography]>=3.3.0' \
+        'cryptography>=41.0.0' \
+        'Pillow>=10.0.0' \
+        'reportlab>=4.0.0'
+
+# Set Lambda-optimized environment variables
+ENV HOME=/tmp
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+ENV PYTHONPATH=${LAMBDA_TASK_ROOT}
+
+# Copy application code
+COPY app/ ${LAMBDA_TASK_ROOT}/app/
+
+# Set working directory
+WORKDIR ${LAMBDA_TASK_ROOT}
+
+# Set the Lambda runtime
+ENTRYPOINT ["/usr/bin/python3", "-m", "awslambdaric"]
+CMD ["app.lambda_handler.eventbridge_handler"]

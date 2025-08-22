@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 from ...auth.deps import require_operator, require_viewer
 from ...domain.models import ScheduleCreate, ScheduleOut
 
-router = APIRouter()
+router: APIRouter = APIRouter()
 
 # In-memory stub store for demo; replace with DynamoDB.
 _SCHEDULES: dict[str, ScheduleOut] = {}

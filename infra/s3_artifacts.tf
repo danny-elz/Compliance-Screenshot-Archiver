@@ -1,6 +1,6 @@
 locals {
   artifacts_bucket = coalesce(var.artifacts_bucket_name, "${var.project}-artifacts-${data.aws_caller_identity.current.account_id}")
-  trail_bucket     = coalesce(var.cloudtrail_bucket_name, "${var.project}-trail-${data.aws_caller_identity.current.account_id}")
+  trail_bucket     = coalesce(var.cloudtrail_bucket_name, "${var.project}-cloudtrail-${data.aws_caller_identity.current.account_id}")
 }
 
 # ---------- Artifacts Bucket (with Object Lock) ----------
@@ -22,8 +22,8 @@ resource "aws_s3_bucket_object_lock_configuration" "artifacts" {
 
   rule {
     default_retention {
-      mode = "GOVERNANCE"
-      days = var.object_lock_days
+      mode = "COMPLIANCE" # CRITICAL: Changed from GOVERNANCE to COMPLIANCE for regulatory requirements
+      days = 2557         # 7 years minimum retention as required by compliance standards
     }
   }
 }
@@ -120,14 +120,27 @@ resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
 
 # ---------- CloudTrail Logs Bucket ----------
 resource "aws_s3_bucket" "trail" {
-  bucket        = local.trail_bucket
-  force_destroy = false
+  bucket              = local.trail_bucket
+  object_lock_enabled = true # CRITICAL: Required for compliance audit logs
+  force_destroy       = false
 }
 
 resource "aws_s3_bucket_versioning" "trail" {
   bucket = aws_s3_bucket.trail.id
   versioning_configuration {
     status = "Enabled"
+  }
+}
+
+# CRITICAL: Add Object Lock to CloudTrail logs bucket for compliance
+resource "aws_s3_bucket_object_lock_configuration" "trail" {
+  bucket = aws_s3_bucket.trail.bucket
+
+  rule {
+    default_retention {
+      mode = "COMPLIANCE" # CRITICAL: COMPLIANCE mode for regulatory requirements
+      days = 2557         # 7 years minimum retention as required by compliance standards
+    }
   }
 }
 

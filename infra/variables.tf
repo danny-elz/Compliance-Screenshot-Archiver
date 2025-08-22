@@ -45,3 +45,28 @@ variable "queue_max_receive_count" {
   type        = number
   default     = 5
 }
+
+variable "alert_email_addresses" {
+  description = "List of email addresses for alert notifications"
+  type        = list(string)
+  default     = []
+}
+
+variable "slack_webhook_url" {
+  description = "Slack webhook URL for notifications (optional)"
+  type        = string
+  default     = null
+  sensitive   = true
+}
+
+variable "monthly_budget_limit" {
+  description = "Monthly budget limit in USD for cost monitoring"
+  type        = string
+  default     = "100"
+}
+
+variable "enable_secret_rotation" {
+  description = "Enable automatic secret rotation"
+  type        = bool
+  default     = false
+}

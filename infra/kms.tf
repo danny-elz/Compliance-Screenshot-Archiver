@@ -54,3 +54,15 @@ resource "aws_kms_alias" "cloudtrail" {
   name          = "alias/${var.project}-cloudtrail"
   target_key_id = aws_kms_key.cloudtrail.key_id
 }
+
+# KMS key for DynamoDB table encryption
+resource "aws_kms_key" "dynamodb" {
+  description             = "KMS CMK for DynamoDB tables"
+  enable_key_rotation     = true
+  deletion_window_in_days = 7
+}
+
+resource "aws_kms_alias" "dynamodb" {
+  name          = "alias/${var.project}-dynamodb"
+  target_key_id = aws_kms_key.dynamodb.key_id
+}

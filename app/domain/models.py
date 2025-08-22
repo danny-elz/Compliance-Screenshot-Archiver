@@ -16,8 +16,8 @@ class ScheduleCreate(BaseModel):
     viewport_width: int = 1280
     viewport_height: int = 800
     wait_until: Literal["load", "domcontentloaded", "networkidle"] = "networkidle"
-    tags: list[str] | None = None
-    retention_days: int | None = Field(default=None, ge=1)
+    tags: list = None
+    retention_days: int = Field(default=None, ge=1)
 
 
 class ScheduleOut(ScheduleCreate):
@@ -35,7 +35,10 @@ class CaptureOut(BaseModel):
     """
 
     id: str
-    schedule_id: str | None = None
+    schedule_id: str = None
     sha256: str
     s3_key: str
     artifact_type: Literal["png", "pdf"] = "pdf"
+    url: str
+    created_at: float
+    status: str = "completed"
