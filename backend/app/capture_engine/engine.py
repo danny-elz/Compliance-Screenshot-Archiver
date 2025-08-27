@@ -82,18 +82,44 @@ async def capture_webpage(
         page = await context.new_page()
 
         try:
-            # Navigate to URL with timeout
-            await page.goto(url, wait_until="networkidle", timeout=30000)
+            # Navigate to URL with more robust loading strategy
+            logger.info(f"Navigating to {url}")
+            
+            try:
+                # First try networkidle with shorter timeout
+                await page.goto(url, wait_until="networkidle", timeout=15000)
+                logger.info(f"Page loaded successfully with networkidle for {url}")
+            except Exception as e:
+                logger.warning(f"NetworkIdle failed for {url}: {str(e)}, trying domcontentloaded")
+                # Fallback to domcontentloaded if networkidle times out
+                await page.goto(url, wait_until="domcontentloaded", timeout=15000)
+                logger.info(f"Page loaded with domcontentloaded for {url}")
 
-            # Wait for any dynamic content
-            await page.wait_for_timeout(2000)
+            # Wait for dynamic content but with shorter timeout for problematic sites
+            await page.wait_for_timeout(1500)
 
-            # Always capture as PNG screenshot - this is what the user wants
-            # Full page screenshot showing the entire webpage
-            artifact_data = await page.screenshot(
-                full_page=False,  # Just the viewport to show "top of the page" as requested
-                type="png",
-            )
+            # Generate the appropriate artifact based on type
+            if artifact_type == "pdf":
+                # Generate PDF with proper settings
+                artifact_data = await page.pdf(
+                    format="A4",
+                    print_background=True,
+                    margin={
+                        "top": "1cm",
+                        "right": "1cm",
+                        "bottom": "1cm",
+                        "left": "1cm"
+                    },
+                    prefer_css_page_size=False,
+                )
+                logger.info(f"Generated PDF for {url}, size: {len(artifact_data)} bytes")
+            else:
+                # Generate PNG screenshot
+                artifact_data = await page.screenshot(
+                    full_page=False,  # Just the viewport to show "top of the page"
+                    type="png",
+                )
+                logger.info(f"Generated PNG screenshot for {url}, size: {len(artifact_data)} bytes")
 
             # Calculate SHA-256 hash
             sha256_hash = hashlib.sha256(artifact_data).hexdigest()
@@ -108,9 +134,18 @@ async def capture_webpage(
                 "content_length": len(artifact_data),
             }
 
+        except Exception as e:
+            logger.error(f"Error capturing {url}: {str(e)}")
+            raise
         finally:
-            await context.close()
-            await browser.close()
+            try:
+                await context.close()
+            except Exception:
+                pass
+            try:
+                await browser.close()
+            except Exception:
+                pass
 
 
 def capture_stub(url: str, artifact_type: str = "pdf") -> dict[str, Any]:

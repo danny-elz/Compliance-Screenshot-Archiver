@@ -20,6 +20,7 @@ async def process_capture_request(
     artifact_type: str = "pdf",
     user_id: str = "system",
     metadata: dict[str, Any] = None,
+    capture_id: str = None,  # Allow capture_id to be passed in
 ) -> dict[str, Any]:
     """
     Process a single capture request end-to-end.
@@ -29,6 +30,7 @@ async def process_capture_request(
         artifact_type: Type of artifact (pdf/png).
         user_id: ID of requesting user.
         metadata: Additional metadata.
+        capture_id: Optional capture ID to use (generates one if not provided).
 
     Returns:
         dict: Capture result with S3 and DynamoDB details.
@@ -80,7 +82,9 @@ async def process_capture_request(
         )
         raise RuntimeError(f"Playwright is required but not available: {str(e)}")
 
-    capture_id = str(uuid.uuid4())
+    # Use provided capture_id or generate new one
+    if capture_id is None:
+        capture_id = str(uuid.uuid4())
 
     try:
         # Step 1: Capture the webpage

@@ -16,8 +16,8 @@ class ScheduleCreate(BaseModel):
     viewport_width: int = 1280
     viewport_height: int = 800
     wait_until: Literal["load", "domcontentloaded", "networkidle"] = "networkidle"
-    tags: list = None
-    retention_days: int = Field(default=None, ge=1)
+    tags: list | None = None
+    retention_days: int | None = Field(default=None, ge=1)
 
 
 class ScheduleOut(ScheduleCreate):

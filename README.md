@@ -4,27 +4,27 @@
 
 The Compliance Screenshot Archiver is a production-ready system that automates the capture and archiving of webpage screenshots and PDFs for compliance and audit purposes. It provides cryptographically-verified, immutable evidence of web content with full audit trails.
 
-## 📁 Repository Structure
+## Repository Structure
 
 This repository is organized for professional development and clear separation of concerns:
 
 ```
-├── 📁 backend/              # Complete Python backend application
+├── backend/                 # Complete Python backend application
 │   ├── app/                 # FastAPI application code
 │   ├── tests/               # Comprehensive test suite
 │   ├── infra/               # Terraform infrastructure as code
 │   ├── scripts/             # Deployment and utility scripts
 │   └── docker/              # Docker configurations
-├── 📁 frontend/             # Frontend application (planned)
-├── 📁 docs/                 # Project documentation
+├── frontend/                # React TypeScript frontend application
+├── docs/                    # Project documentation
 │   ├── compliance/          # Compliance and security docs
 │   └── assets/              # Images and supporting materials
-├── 📁 deployment/           # Deployment configurations
-├── 📁 tools/                # Development tools and utilities
-└── 📄 Core project files    # README, planning docs, etc.
+├── deployment/              # Deployment configurations
+├── tools/                   # Development tools and utilities
+└── Core project files       # README, planning docs, etc.
 ```
 
-## 🎯 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.12+
@@ -107,60 +107,46 @@ cd frontend
 # See frontend/README.md for details
 ```
 
-## 🔒 Security & Compliance
+## Deployment
 
-This system implements enterprise-grade security:
+### AWS Infrastructure
 
-- **🔐 Authentication:** AWS Cognito with JWT tokens
-- **🛡️ Authorization:** Role-based access control (Admin/Operator/Viewer)
-- **🔒 Encryption:** KMS encryption for all data at rest and in transit
-- **📝 Immutability:** S3 Object Lock in Compliance mode (cannot be disabled)
-- **📋 Audit Trail:** Complete CloudTrail logging with Object Lock protection
-- **✅ Verification:** SHA-256 hash verification for all captured content
+The system requires the following AWS resources:
 
-### Compliance Standards
-- **SEC 17a-4:** Electronic record retention requirements
-- **SOC 2 Type II:** Security and availability controls
-- **WORM Storage:** Write-once, read-many with legal defensibility
+- **S3 Bucket**: With Object Lock enabled for compliance
+- **DynamoDB Tables**: For metadata storage
+- **IAM Roles**: With appropriate S3 and DynamoDB permissions
 
-## 💰 Business Value
+### Production Deployment
 
-The CSA system addresses a **$15M market opportunity** in enterprise compliance:
+1. **Setup AWS Infrastructure**
+   ```bash
+   # Create S3 bucket with Object Lock
+   aws s3 mb s3://your-csa-artifacts-bucket
+   aws s3api put-object-lock-configuration \
+     --bucket your-csa-artifacts-bucket \
+     --object-lock-configuration ObjectLockEnabled=Enabled
+   ```
 
-- **Target Market:** Enterprise legal, compliance, and audit teams
-- **Pricing Model:** $299-4,999/month SaaS tiers
-- **Value Proposition:** Legal-defensible evidence vs. basic screenshots
-- **Competitive Advantage:** 10-100x higher value than commodity screenshot APIs
+2. **Deploy Backend**
+   - Configure production environment variables
+   - Deploy to your preferred hosting service (ECS, Lambda, etc.)
 
-See [docs/Future-Prospects.md](docs/Future-Prospects.md) for complete market analysis.
+3. **Deploy Frontend**
+   ```bash
+   npm run build
+   # Deploy dist/ to your web hosting service
+   ```
 
-## 📊 Project Status
+## Compliance
 
-**Current State:** Production-ready backend with comprehensive test coverage
-- ✅ **Core Features:** All MUST requirements implemented
-- ✅ **Infrastructure:** Complete Terraform configurations
-- ✅ **Security:** Enterprise-grade compliance controls
-- ✅ **Testing:** 92 tests passing with 75% coverage
-- 📋 **Frontend:** Planned implementation
+This system is designed to meet regulatory requirements for electronic record keeping:
 
-## 🤝 Contributing
+- **Immutable Storage**: S3 Object Lock prevents modification
+- **Integrity Verification**: SHA-256 checksums for all content
+- **Audit Trail**: Complete logging of capture and access events
+- **Access Controls**: Role-based permissions and authentication
 
-This project follows professional development standards:
+## License
 
-1. **Read the specs:** Review CSA-Spec.md and CSA-Design.md first
-2. **Check tasks:** See TASK.md for current priorities
-3. **Follow standards:** Use ruff/mypy for code quality
-4. **Write tests:** Maintain test coverage above 75%
-5. **Security first:** Never compromise compliance requirements
-
-## 📞 Support
-
-For questions or issues:
-- **Documentation:** See docs/ directory
-- **Tasks & Planning:** Check TASK.md and PLANNING.md
-- **Architecture:** Review CSA-Design.md
-- **Business Case:** See Future-Prospects.md
-
----
-
-**Status:** Production-ready backend, frontend development planned
+Copyright (c) 2024. All rights reserved.

@@ -71,6 +71,8 @@ async def list_captures(
             )
         )
 
+    # No mock data - show real captures only
+
     return captures
 
 
@@ -126,6 +128,8 @@ async def download_capture(
     """
     capture = get_capture(capture_id)
 
+    # No mock data - only real captures
+
     if not capture:
         raise HTTPException(status_code=404, detail="Capture not found")
 
@@ -133,8 +137,9 @@ async def download_capture(
     if not can_access_user_resource(user_info, capture["user_id"]):
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Generate presigned URL
-    download_url = presign_download(capture["s3_key"])
+    # Generate presigned URL with version ID if available
+    version_id = capture.get("metadata", {}).get("s3_version_id")
+    download_url = presign_download(capture["s3_key"], version_id=version_id)
 
     return {
         "download_url": download_url,
@@ -151,7 +156,7 @@ async def trigger_capture(
     user_info: dict[str, str] = _operator_dep,
 ) -> dict[str, Any]:
     """
-    Trigger an on-demand capture by queuing to SQS.
+    Trigger an on-demand capture with immediate processing (synchronous).
 
     Args:
         url: Target URL to capture.
@@ -159,54 +164,53 @@ async def trigger_capture(
         user_info: User authentication info.
 
     Returns:
-        dict: Queued request details with status.
+        dict: Completed capture details with download info.
     """
-    import json
     import uuid
-
-    import boto3
 
     user_id = user_info.get("sub", "unknown")
     capture_id = str(uuid.uuid4())
 
     try:
-        # Send message to SQS for async processing
-        sqs = boto3.client("sqs")
-        queue_url = "https://sqs.us-east-1.amazonaws.com/528757794814/csa-jobs"
-
-        message_body = {
-            "capture_id": capture_id,
-            "url": url,
-            "artifact_type": artifact_type,
-            "user_id": user_id,
-            "metadata": {"triggered_via": "api"},
-        }
-
-        response = sqs.send_message(
-            QueueUrl=queue_url,
-            MessageBody=json.dumps(message_body),
-            MessageAttributes={
-                "capture_id": {"StringValue": capture_id, "DataType": "String"},
-                "user_id": {"StringValue": user_id, "DataType": "String"},
-            },
+        logger.info(f"Processing synchronous capture {capture_id} for {url}")
+        
+        # Import and use the capture processor directly
+        from ...capture_engine.processor import process_capture_request
+        
+        result = await process_capture_request(
+            url=url,
+            artifact_type=artifact_type,
+            user_id=user_id,
+            metadata={"triggered_via": "api"},
+            capture_id=capture_id
         )
-
-        logger.info(
-            f"Capture queued successfully: {capture_id}, message_id: {response['MessageId']}"
-        )
-
-        return {
-            "capture_id": capture_id,
-            "status": "queued",
-            "url": url,
-            "artifact_type": artifact_type,
-            "message_id": response["MessageId"],
-            "queue_url": queue_url,
-        }
-
+        
+        if result.get('status') == 'completed':
+            logger.info(f"Successfully archived {capture_id}: {result['s3_key']}")
+            
+            # Return immediate success response
+            return {
+                "capture_id": capture_id,
+                "status": "completed",
+                "url": url,
+                "artifact_type": artifact_type,
+                "s3_key": result['s3_key'],
+                "sha256": result['sha256'],
+                "message": "Screenshot archived successfully"
+            }
+        else:
+            logger.error(f"Capture failed for {capture_id}: {result.get('error', 'Unknown error')}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Capture failed: {result.get('error', 'Processing failed')}"
+            )
+            
     except Exception as e:
-        logger.error(f"Failed to queue capture: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to queue capture: {str(e)}") from e
+        logger.error(f"Failed to process capture {capture_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to archive screenshot: {str(e)}"
+        ) from e
 
 
 @router.post("/verify", response_model=dict[str, Any])
