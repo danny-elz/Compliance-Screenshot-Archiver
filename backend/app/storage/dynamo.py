@@ -399,3 +399,36 @@ def delete_schedule(schedule_id: str) -> bool:
     except ClientError as e:
         logger.error(f"Failed to delete schedule: {e}")
         return False
+
+
+def delete_capture(capture_id: str, created_at: float = None) -> bool:
+    """
+    Delete a capture record.
+
+    Args:
+        capture_id: Capture ID.
+        created_at: Creation timestamp (required for composite key).
+
+    Returns:
+        bool: True if deleted, False otherwise.
+    """
+    captures_table = table(settings.ddb_table_captures)
+
+    try:
+        # If created_at not provided, get it from the capture first
+        if created_at is None:
+            capture_data = get_capture(capture_id)
+            if not capture_data:
+                logger.error(f"Capture {capture_id} not found for deletion")
+                return False
+            created_at = float(capture_data["created_at"])
+
+        # Use composite key for deletion
+        key = {"capture_id": capture_id, "created_at": Decimal(str(created_at))}
+
+        captures_table.delete_item(Key=key)
+        logger.info(f"Deleted capture: {capture_id}")
+        return True
+    except ClientError as e:
+        logger.error(f"Failed to delete capture: {e}")
+        return False

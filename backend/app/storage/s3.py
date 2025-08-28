@@ -28,12 +28,9 @@ def s3_client() -> Any:
         botocore.client.S3: S3 client.
     """
     return boto3.client(
-        "s3", 
+        "s3",
         region_name="us-east-1",
-        config=Config(
-            s3={"addressing_style": "virtual"},
-            signature_version="s3v4"
-        )
+        config=Config(s3={"addressing_style": "virtual"}, signature_version="s3v4"),
     )
 
 
@@ -74,11 +71,11 @@ def upload_artifact(
 
     # Determine content type based on file extension
     content_type = "application/octet-stream"  # Default
-    if key.lower().endswith('.pdf'):
+    if key.lower().endswith(".pdf"):
         content_type = "application/pdf"
-    elif key.lower().endswith('.png'):
+    elif key.lower().endswith(".png"):
         content_type = "image/png"
-    elif key.lower().endswith('.jpg') or key.lower().endswith('.jpeg'):
+    elif key.lower().endswith(".jpg") or key.lower().endswith(".jpeg"):
         content_type = "image/jpeg"
 
     try:
@@ -90,27 +87,31 @@ def upload_artifact(
             "Metadata": metadata,
             "ContentType": content_type,  # Set proper MIME type
         }
-        
+
         # Add encryption parameters if KMS key is configured
         if settings.kms_key_arn:
-            put_params.update({
-                "ServerSideEncryption": "aws:kms",
-                "SSEKMSKeyId": settings.kms_key_arn,
-            })
+            put_params.update(
+                {
+                    "ServerSideEncryption": "aws:kms",
+                    "SSEKMSKeyId": settings.kms_key_arn,
+                }
+            )
         else:
             # Use bucket default encryption (AES256)
             put_params["ServerSideEncryption"] = "AES256"
-        
+
         # Add Object Lock parameters only in production environment
         if settings.env != "dev":
-            put_params.update({
-                "ObjectLockMode": "COMPLIANCE",
-                "ObjectLockRetainUntilDate": retention_until,
-            })
+            put_params.update(
+                {
+                    "ObjectLockMode": "COMPLIANCE",
+                    "ObjectLockRetainUntilDate": retention_until,
+                }
+            )
             logger.info(f"Using Object Lock in {settings.env} environment")
         else:
             logger.info(f"Skipping Object Lock in {settings.env} environment")
-        
+
         # Upload artifact
         response = client.put_object(**put_params)
 
@@ -172,7 +173,9 @@ def get_artifact(key: str, version_id: str = None) -> bytes:
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code")
             if error_code in ["NoSuchVersion", "NoSuchKey", "NotFound", "404"]:
-                logger.warning(f"Version {version_id} not found for {key}, falling back to latest version")
+                logger.warning(
+                    f"Version {version_id} not found for {key}, falling back to latest version"
+                )
                 # Fall through to try without version ID
             else:
                 logger.error(f"Failed to retrieve artifact with version ID: {e}")
@@ -216,7 +219,9 @@ def get_artifact_metadata(key: str, version_id: str = None) -> dict[str, Any]:
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code")
             if error_code in ["NoSuchVersion", "NoSuchKey", "NotFound", "404"]:
-                logger.warning(f"Version {version_id} not found for {key}, falling back to latest version")
+                logger.warning(
+                    f"Version {version_id} not found for {key}, falling back to latest version"
+                )
                 # Fall through to try without version ID
                 response = client.head_object(**params)
                 logger.info(f"Retrieved metadata for {key} (latest version)")
@@ -267,7 +272,7 @@ def presign_download(key: str, expires: int = None, version_id: str = None) -> s
 
     # Prepare parameters for presigned URL
     params = {"Bucket": settings.s3_bucket_artifacts, "Key": key}
-    
+
     # Try with version ID first if provided, but fall back if it doesn't exist
     if version_id:
         try:
@@ -275,17 +280,21 @@ def presign_download(key: str, expires: int = None, version_id: str = None) -> s
             versioned_params = params.copy()
             versioned_params["VersionId"] = version_id
             client.head_object(**versioned_params)
-            
+
             # Version exists, use it in presigned URL
             params["VersionId"] = version_id
             logger.info(f"Generating presigned URL for {key} version {version_id}")
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code")
             if error_code in ["NoSuchVersion", "NoSuchKey", "NotFound", "404"]:
-                logger.warning(f"Version {version_id} not found for {key}, generating URL for latest version")
+                logger.warning(
+                    f"Version {version_id} not found for {key}, generating URL for latest version"
+                )
                 # Don't add VersionId to params, will use latest
             else:
-                logger.warning(f"Failed to verify version {version_id} for {key}: {e} - falling back to latest version")
+                logger.warning(
+                    f"Failed to verify version {version_id} for {key}: {e} - falling back to latest version"
+                )
                 # Still try to generate URL without version ID
     else:
         logger.info(f"Generating presigned URL for {key} (latest version)")
@@ -312,4 +321,33 @@ def verify_object_lock(key: str) -> bool:
         metadata = get_artifact_metadata(key)
         return metadata.get("object_lock_mode") == "COMPLIANCE"
     except ClientError:
+        return False
+
+
+def delete_object(key: str, version_id: str = None) -> bool:
+    """
+    Delete an object from S3.
+
+    Args:
+        key: S3 object key.
+        version_id: Optional version ID for versioned objects.
+
+    Returns:
+        bool: True if deleted successfully, False otherwise.
+    """
+    s3 = s3_client()
+    bucket = settings.s3_bucket_artifacts
+
+    try:
+        delete_params = {"Bucket": bucket, "Key": key}
+        if version_id:
+            delete_params["VersionId"] = version_id
+
+        s3.delete_object(**delete_params)
+        logger.info(
+            f"Deleted S3 object: {key}" + (f" (version: {version_id})" if version_id else "")
+        )
+        return True
+    except ClientError as e:
+        logger.error(f"Failed to delete S3 object {key}: {e}")
         return False

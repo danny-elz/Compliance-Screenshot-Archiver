@@ -138,6 +138,51 @@ export function CapturesList({ onVerifyCapture }: CapturesListProps) {
     }
   };
 
+  const handleDelete = async (capture: Capture) => {
+    if (!confirm(`Are you sure you want to delete this capture of ${capture.url}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setError('');
+      await apiClient.deleteCapture(capture.id);
+      
+      // Remove from local state
+      setCaptures(prev => prev.filter(c => c.id !== capture.id));
+      setSelectedCaptures(prev => prev.filter(id => id !== capture.id));
+      
+      // Show success message briefly
+      // You could add a toast notification here if you have one
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete capture');
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${selectedCaptures.length} selected capture${selectedCaptures.length !== 1 ? 's' : ''}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setError('');
+      
+      // Delete all selected captures
+      const deletePromises = selectedCaptures.map(captureId => 
+        apiClient.deleteCapture(captureId)
+      );
+      
+      await Promise.all(deletePromises);
+      
+      // Remove from local state
+      setCaptures(prev => prev.filter(c => !selectedCaptures.includes(c.id)));
+      setSelectedCaptures([]);
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete some captures');
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
@@ -327,6 +372,15 @@ export function CapturesList({ onVerifyCapture }: CapturesListProps) {
                     <Download className="h-4 w-4 mr-1" />
                     Download Selected ({selectedCaptures.length})
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleBulkDelete}
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete Selected ({selectedCaptures.length})
+                  </Button>
                 </div>
               )}
             </div>
@@ -398,6 +452,15 @@ export function CapturesList({ onVerifyCapture }: CapturesListProps) {
                           Download
                         </Button>
                       )}
+                      
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDelete(capture)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
                 </CardContent>

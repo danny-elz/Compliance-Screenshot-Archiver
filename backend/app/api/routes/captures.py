@@ -9,8 +9,8 @@ from ...auth.deps import can_access_user_resource, require_operator, require_vie
 
 # Removed direct import of processor to avoid Playwright dependency in API Lambda
 from ...domain.models import CaptureOut
-from ...storage.dynamo import get_capture, list_captures_by_user
-from ...storage.s3 import presign_download
+from ...storage.dynamo import get_capture, list_captures_by_user, delete_capture
+from ...storage.s3 import presign_download, delete_object
 
 router: APIRouter = APIRouter()
 logger = logging.getLogger(__name__)
@@ -173,43 +173,42 @@ async def trigger_capture(
 
     try:
         logger.info(f"Processing synchronous capture {capture_id} for {url}")
-        
+
         # Import and use the capture processor directly
         from ...capture_engine.processor import process_capture_request
-        
+
         result = await process_capture_request(
             url=url,
             artifact_type=artifact_type,
             user_id=user_id,
             metadata={"triggered_via": "api"},
-            capture_id=capture_id
+            capture_id=capture_id,
         )
-        
-        if result.get('status') == 'completed':
+
+        if result.get("status") == "completed":
             logger.info(f"Successfully archived {capture_id}: {result['s3_key']}")
-            
+
             # Return immediate success response
             return {
                 "capture_id": capture_id,
                 "status": "completed",
                 "url": url,
                 "artifact_type": artifact_type,
-                "s3_key": result['s3_key'],
-                "sha256": result['sha256'],
-                "message": "Screenshot archived successfully"
+                "s3_key": result["s3_key"],
+                "sha256": result["sha256"],
+                "message": "Screenshot archived successfully",
             }
         else:
             logger.error(f"Capture failed for {capture_id}: {result.get('error', 'Unknown error')}")
             raise HTTPException(
-                status_code=500, 
-                detail=f"Capture failed: {result.get('error', 'Processing failed')}"
+                status_code=500,
+                detail=f"Capture failed: {result.get('error', 'Processing failed')}",
             )
-            
+
     except Exception as e:
         logger.error(f"Failed to process capture {capture_id}: {str(e)}")
         raise HTTPException(
-            status_code=500, 
-            detail=f"Failed to archive screenshot: {str(e)}"
+            status_code=500, detail=f"Failed to archive screenshot: {str(e)}"
         ) from e
 
 
@@ -253,3 +252,60 @@ async def verify_capture(
         "object_lock_verified": object_locked,
         "sha256": sha256,
     }
+
+
+@router.delete("/{capture_id}")
+async def delete_capture_by_id(
+    capture_id: str,
+    user_info: dict[str, str] = _operator_dep,
+) -> dict[str, str]:
+    """
+    Delete a capture and its associated S3 object.
+
+    Args:
+        capture_id: Capture ID to delete.
+        user_info: User authentication info.
+
+    Returns:
+        dict: Deletion confirmation message.
+    """
+    # Get the capture details first
+    capture = get_capture(capture_id)
+
+    if not capture:
+        raise HTTPException(status_code=404, detail="Capture not found")
+
+    # Verify user has access to delete this capture
+    if not can_access_user_resource(user_info, capture["user_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Get version ID if available for S3 deletion
+    version_id = capture.get("metadata", {}).get("s3_version_id")
+
+    try:
+        # Delete from S3 first
+        s3_deleted = delete_object(capture["s3_key"], version_id=version_id)
+        if not s3_deleted:
+            logger.warning(
+                f"Failed to delete S3 object for capture {capture_id}, continuing with DynamoDB deletion"
+            )
+
+        # Delete from DynamoDB
+        db_deleted = delete_capture(capture_id)
+        if not db_deleted:
+            raise HTTPException(
+                status_code=500, detail="Failed to delete capture record from database"
+            )
+
+        logger.info(
+            f"Successfully deleted capture {capture_id} (S3: {s3_deleted}, DB: {db_deleted})"
+        )
+        return {
+            "message": f"Capture {capture_id} deleted successfully",
+            "s3_deleted": str(s3_deleted),
+            "db_deleted": str(db_deleted),
+        }
+
+    except Exception as e:
+        logger.error(f"Error deleting capture {capture_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete capture: {str(e)}") from e
