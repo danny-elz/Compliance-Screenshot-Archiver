@@ -54,14 +54,14 @@ cd backend
 uv run python -m app.main   # Start API server
 ```
 
-## 📋 Authoritative Documentation
+## Authoritative Documentation
 - **Requirements Specification:** [docs/CSA-Spec.md](docs/CSA-Spec.md)
 - **System Design:** [docs/CSA-Design.md](docs/CSA-Design.md)
 - **Market Analysis:** [docs/Future-Prospects.md](docs/Future-Prospects.md)
 - **Implementation Tasks:** [TASK.md](TASK.md)
 - **Project Planning:** [PLANNING.md](PLANNING.md)
 
-## 🏗️ System Architecture
+## System Architecture
 
 **Technology Stack:**
 - **Backend:** Python 3.12, FastAPI, Playwright/Chromium
@@ -70,14 +70,14 @@ uv run python -m app.main   # Start API server
 - **Deployment:** Terraform, Docker, GitHub Actions
 
 **Key Features:**
-- ✅ Scheduled and on-demand webpage captures
-- ✅ PDF/PNG export with SHA-256 hash verification
-- ✅ Immutable storage with 7-year retention
-- ✅ Enterprise authentication and RBAC
-- ✅ Complete audit trails and compliance reporting
-- ✅ RESTful API and dashboard interface
+- Scheduled and on-demand webpage captures
+- PDF/PNG export with SHA-256 hash verification
+- Immutable storage with 7-year retention
+- Enterprise authentication and RBAC
+- Complete audit trails and compliance reporting
+- RESTful API and dashboard interface
 
-## 🚀 Development Workflow
+## Development Workflow
 
 ### For Backend Development
 ```bash
