@@ -4,9 +4,6 @@ on:
   pull_request:
     paths:
       - 'docs/**'
-      - 'CLAUDE.md'
-      - '.claude/**'
-      - 'PRPs/**'
 
 jobs:
   doc_guard:
