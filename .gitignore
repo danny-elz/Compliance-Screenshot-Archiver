@@ -130,9 +130,10 @@ docs/build/
 .aws/credentials
 .aws/config
 
-# Don't ignore Claude config (but ignore local settings)
-!.claude/
-.claude/settings.local.json
+# AI Agent Files (keep local only)
+.claude/
+.serena/
+tools/archon/
 
 coverage
 htmlcov/
@@ -144,4 +145,3 @@ __pycache__/
 *.pyo
 *.png  # Unless specifically needed screenshots
 test_report_*.json
-tools/archon
